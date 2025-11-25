@@ -1,7 +1,10 @@
 #include <iostream>
 #include <vector>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
 using namespace std;
-
 
 class Person {
 public:
@@ -10,13 +13,8 @@ public:
     string contact;
 
     Person() {}
-    Person(string n, int a, string c) {
-        name = n;
-        age = a;
-        contact = c;
-    }
+    Person(string n, int a, string c) : name(n), age(a), contact(c) {}
 };
-
 
 class Patient : public Person {
 public:
@@ -27,7 +25,6 @@ public:
         : Person(n, a, c), patientId(id), disease(d) {}
 };
 
-
 class Doctor : public Person {
 public:
     int doctorId;
@@ -37,7 +34,6 @@ public:
         : Person(n, a, c), doctorId(id), specialization(sp) {}
 };
 
-
 class Appointment {
 public:
     int apptId;
@@ -45,14 +41,9 @@ public:
     int doctorId;
     string date;
 
-    Appointment(int a, int p, int d, string dt) {
-        apptId = a;
-        patientId = p;
-        doctorId = d;
-        date = dt;
-    }
+    Appointment(int a, int p, int d, string dt)
+        : apptId(a), patientId(p), doctorId(d), date(dt) {}
 };
-
 
 class HospitalSystem {
     vector<Patient> patients;
@@ -65,71 +56,193 @@ class HospitalSystem {
 
 public:
 
-   
+    HospitalSystem() {
+        createCSVIfNotExist("patients.csv", "ID,Name,Age,Contact,Disease\n");
+        createCSVIfNotExist("doctors.csv",  "ID,Name,Age,Contact,Specialization\n");
+        createCSVIfNotExist("appointments.csv", "ApptID,PatientID,DoctorID,Date\n");
+
+        loadPatients();
+        loadDoctors();
+        loadAppointments();
+    }
+
+    void createCSVIfNotExist(const string &filename, const string &header) {
+        if (!filesystem::exists(filename)) {
+            ofstream file(filename);
+            file << header;
+        }
+    }
+
+    // ------------ LOAD FROM CSV -------------
+    void loadPatients() {
+        ifstream file("patients.csv");
+        string line;
+        getline(file, line); // skip header
+
+        while (getline(file, line)) {
+            stringstream ss(line);
+            string id, name, age, contact, disease;
+
+            getline(ss, id, ',');
+            getline(ss, name, ',');
+            getline(ss, age, ',');
+            getline(ss, contact, ',');
+            getline(ss, disease, ',');
+
+            if (id == "") continue;
+
+            patients.emplace_back(stoi(id), name, stoi(age), contact, disease);
+            nextPatientId = max(nextPatientId, stoi(id) + 1);
+        }
+    }
+
+    void loadDoctors() {
+        ifstream file("doctors.csv");
+        string line;
+        getline(file, line);
+
+        while (getline(file, line)) {
+            stringstream ss(line);
+            string id, name, age, contact, spec;
+
+            getline(ss, id, ',');
+            getline(ss, name, ',');
+            getline(ss, age, ',');
+            getline(ss, contact, ',');
+            getline(ss, spec, ',');
+
+            if (id == "") continue;
+
+            doctors.emplace_back(stoi(id), name, stoi(age), contact, spec);
+            nextDoctorId = max(nextDoctorId, stoi(id) + 1);
+        }
+    }
+
+    void loadAppointments() {
+        ifstream file("appointments.csv");
+        string line;
+        getline(file, line);
+
+        while (getline(file, line)) {
+            stringstream ss(line);
+            string aid, pid, did, date;
+
+            getline(ss, aid, ',');
+            getline(ss, pid, ',');
+            getline(ss, did, ',');
+            getline(ss, date, ',');
+
+            if (aid == "") continue;
+
+            appts.emplace_back(stoi(aid), stoi(pid), stoi(did), date);
+            nextApptId = max(nextApptId, stoi(aid) + 1);
+        }
+    }
+
+    // ------------ SAVE TO CSV -------------
+    void savePatientToCSV(const Patient &p) {
+        ofstream file("patients.csv", ios::app);
+        file << p.patientId << "," << p.name << "," << p.age << ","
+             << p.contact << "," << p.disease << "\n";
+    }
+
+    void saveDoctorToCSV(const Doctor &d) {
+        ofstream file("doctors.csv", ios::app);
+        file << d.doctorId << "," << d.name << "," << d.age << ","
+             << d.contact << "," << d.specialization << "\n";
+    }
+
+    void saveAppointmentToCSV(const Appointment &a) {
+        ofstream file("appointments.csv", ios::app);
+        file << a.apptId << "," << a.patientId << "," << a.doctorId
+             << "," << a.date << "\n";
+    }
+
+    // ------------ ADD FUNCTIONS -------------
     void addPatient() {
         string name, contact, disease;
         int age;
 
+        cin.ignore();
         cout << "Enter Name: ";
-        cin >> name;
+        getline(cin, name);
+
         cout << "Enter Age: ";
         cin >> age;
-        cout << "Enter Contact: ";
-        cin >> contact;
-        cout << "Enter Disease: ";
-        cin >> disease;
 
-        patients.push_back(Patient(nextPatientId, name, age, contact, disease));
+        cin.ignore();
+        cout << "Enter Contact: ";
+        getline(cin, contact);
+
+        cout << "Enter Disease: ";
+        getline(cin, disease);
+
+        Patient p(nextPatientId, name, age, contact, disease);
+        patients.push_back(p);
+        savePatientToCSV(p);
+
         cout << "Patient added with ID: " << nextPatientId << endl;
         nextPatientId++;
     }
 
-    
     void addDoctor() {
         string name, contact, spec;
         int age;
 
+        cin.ignore();
         cout << "Enter Name: ";
-        cin >> name;
+        getline(cin, name);
+
         cout << "Enter Age: ";
         cin >> age;
-        cout << "Enter Contact: ";
-        cin >> contact;
-        cout << "Enter Specialization: ";
-        cin >> spec;
 
-        doctors.push_back(Doctor(nextDoctorId, name, age, contact, spec));
+        cin.ignore();
+        cout << "Enter Contact: ";
+        getline(cin, contact);
+
+        cout << "Enter Specialization: ";
+        getline(cin, spec);
+
+        Doctor d(nextDoctorId, name, age, contact, spec);
+        doctors.push_back(d);
+        saveDoctorToCSV(d);
+
         cout << "Doctor added with ID: " << nextDoctorId << endl;
         nextDoctorId++;
     }
 
-   
     void bookAppointment() {
         int pid, did;
         string date;
 
         cout << "Enter Patient ID: ";
         cin >> pid;
+
         cout << "Enter Doctor ID: ";
         cin >> did;
-        cout << "Enter Date: ";
-        cin >> date;
 
-        appts.push_back(Appointment(nextApptId, pid, did, date));
+        cin.ignore();
+        cout << "Enter Date: ";
+        getline(cin, date);
+
+        Appointment a(nextApptId, pid, did, date);
+        appts.push_back(a);
+        saveAppointmentToCSV(a);
+
         cout << "Appointment booked with ID: " << nextApptId << endl;
         nextApptId++;
     }
 
-    
+    // ------------ VIEW FUNCTIONS -------------
     void viewPatients() {
         cout << "\n---- Patient List ----\n";
         for (auto &p : patients) {
             cout << "ID: " << p.patientId << "  Name: " << p.name
-                 << "  Age: " << p.age << "  Disease: " << p.disease << endl;
+                 << "  Age: " << p.age
+                 << "  Disease: " << p.disease << endl;
         }
     }
 
-   
     void viewDoctors() {
         cout << "\n---- Doctor List ----\n";
         for (auto &d : doctors) {
@@ -138,16 +251,15 @@ public:
         }
     }
 
-
     void viewAppointments() {
         cout << "\n---- Appointments ----\n";
         for (auto &a : appts) {
             cout << "Appt ID: " << a.apptId << "  PatientID: " << a.patientId
-                 << "  DoctorID: " << a.doctorId << "  Date: " << a.date << endl;
+                 << "  DoctorID: " << a.doctorId
+                 << "  Date: " << a.date << endl;
         }
     }
 };
-
 
 int main() {
     HospitalSystem hs;
@@ -172,11 +284,8 @@ int main() {
         case 4: hs.viewPatients(); break;
         case 5: hs.viewDoctors(); break;
         case 6: hs.viewAppointments(); break;
-        case 7: 
-            cout << "Exiting...\n"; 
-            return 0;
-        default: 
-            cout << "Invalid choice!\n";
+        case 7: return 0;
+        default: cout << "Invalid choice!\n";
         }
     }
 }
